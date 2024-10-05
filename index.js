@@ -52,6 +52,21 @@ app.get('/', (req, res) => {
 });
 
 // Admin requests _____________________________________________________________
+app.get('/admin/user-list', (req, res) => {
+    console.info("Retrieving user list.")
+    
+    const database = createDBConnection(dbPath);
+    const databaseQuery = `SELECT username, isactive FROM users`;
+
+    database.all(databaseQuery, (error, rows) => {
+        if (error) {returnError(error, res, 500);};
+
+        res.json(rows);
+
+        database.close();
+    });
+})
+
 app.post('/admin/add-user', (req, res) => {
     const username = req.body.username;
     const password = req.body.password;
