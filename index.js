@@ -61,7 +61,10 @@ app.get('/admin/user-list', (req, res) => {
     database.all(databaseQuery, (error, rows) => {
         if (error) {returnError(error, res, 500);};
 
-        res.json(rows);
+        res.json({
+            status: "success",
+            users: rows
+        });
 
         database.close();
     });

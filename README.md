@@ -54,21 +54,21 @@ Verifica credenciais do usuário e gera um token de acesso.
 **Corpo Requisição:**
 ```json
 {
-    "username": string "nome de usuario",
-    "password": string "senha do usuario",
-    "expiration": (opcional) int | string "Default: 5min, Inteiro: Segundos, String: formatos biblioteca MS"
+    "username": "<string> nome de usuario",
+    "password": "<string> senha do usuario",
+    "expiration": "(opcional) <int | string> Default: 5min, Inteiro: Segundos, String: formatos biblioteca MS"
 }
 ```
-Formatos válidos disponíveis para tempo de validade disponíveis em [vercel/ms](https://github.com/vercel/ms)
+Formatos válidos disponíveis para tempo de validade podem ser conferidos em [vercel/ms](https://github.com/vercel/ms)
 
 
 **Resposta:**
 ```json
 {
-    "status": string <"success"|"error">,
-    "sessionToken": string "token de sessão gerado",
-    "expiresIn": ISOstring "data e hora limite da validate do token",
-    "msg": string "mensagem de erro"
+    "status": "<string> success | error>",
+    "sessionToken": "<string> token de sessão gerado",
+    "expiresIn": "<ISOstring> data e hora limite da validate do token",
+    "msg": "<string> mensagem de erro"
 }
 ```
 
@@ -78,10 +78,10 @@ Verifica se um token de acesso é valido.
 **Resposta:**
 ```json
 {
-    "status": string <"success"|"error">,
-    "user": string "usuario que gerou o token",
-    "token": string "token enviado",
-    "msg": string "mensagem de erro"
+    "status": "<string> success | error>",
+    "user": "<string> usuario que gerou o token",
+    "token": "<string> token enviado",
+    "msg": "<string> mensagem de erro"
 }
 ```
 
@@ -91,14 +91,17 @@ Lista usuários registrados na base de dados.
 
 **Resposta:**
 ```json
-[
-    {
-        "username": string "nome do usuário"
-        "isactive": bool "status de ativação do usuário"
-    },
-    {...},
-    {...}
-]
+{
+    "status": "<string> success | error",
+    "users": [
+        {
+            "username": "<string> nome do usuário",
+            "isactive": "<bool> status de ativação do usuário"
+        },
+        {"..."},
+        {"..."}
+    ]
+}
 ```
 
 ### `POST:/admin/add-user`
@@ -107,16 +110,16 @@ Adiciona um usuário a base de dados.
 **Corpo Requisição:**
 ```json
 {
-    "username": string "nome de usuario",
-    "password": string "senha do usuario"
+    "username": "<string> nome de usuario",
+    "password": "<string> senha do usuario"
 }
 ```
 
 **Resposta:**
 ```json
 {
-    "status": string <"success"|"error">,
-    "msg": string "mensagem de resposta"
+    "status": "<string> success | error",
+    "msg": "<string> mensagem de resposta"
 }
 ```
 
@@ -126,14 +129,14 @@ Alterna o status de ativação do usuário.
 **Corpo Requisição:**
 ```json
 {
-    "username": string "nome de usuario",
+    "username": "<string> nome de usuario",
 }
 ```
 
 **Resposta:**
 ```json
 {
-    "status": string <"success"|"error">,
-    "msg": string "mensagem de resposta"
+    "status": "<string> success | error",
+    "msg": "<string> mensagem de resposta"
 }
 ```
