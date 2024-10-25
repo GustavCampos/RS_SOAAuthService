@@ -1,21 +1,25 @@
-const bcrypt     = require("bcrypt");
-const express    = require("express");
-const fileSystem = require("fs"); 
-const jwt        = require("jsonwebtoken");
-const sqlite     = require("sqlite3").verbose();
+const bcrypt      = require("bcrypt");
+const express     = require("express");
+const fileSystem  = require("fs"); 
+const jwt         = require("jsonwebtoken");
+const sqlite      = require("sqlite3").verbose();
+
+// Local Files
+const c           = require("./constants.js")
+const tokenSecret = require("./token_secret.json");
 
 // Express constants
 const app = express();
 app.use(express.json()); // Set all request body to json
 
-const appPort = 3000;
+const appPort = c.express.appPort;
 
 // Encription constants
-const saltRounds = 10;
+const saltRounds = c.bcrypt.saltRounds;
 
 // SQLite constants
-const dbPath = "users.db"
-const getUserQuery = `SELECT * FROM users WHERE username = ?;`;
+const dbPath = c.sqlite.path;
+const getUserQuery = c.sqlite.queries.getUsers;
 
 // JWT constants
 const tokenPath = "token_secret.json"
@@ -25,10 +29,12 @@ const tokenTimeLimit = 300; // 5min
 const returnError = (error, res, statusCode = 400) => {
     console.error(error.message);
 
-    return res.status(statusCode).json({
+    res.status(statusCode).json({
         status: "error",
         msg: error.message
     });
+
+    return false;
 };
 
 const createDBConnection = (dbFile) => {
@@ -41,22 +47,59 @@ const createDBConnection = (dbFile) => {
     })
 };
 
+
+
+const verifyToken = async (res, token) => {
+    if (!tokenSecret?.secret) {
+        return returnError({message: "Problem acessing server secrets"}, res, 500);
+    }
+
+    return new Promise((resolve, reject) => {
+        jwt.verify(token, tokenSecret.secret, (error, decoded) => {
+            if (error) {return returnError(error, res, 401);};
+
+            resolve(decoded);
+        });
+    });
+}
+
+const verifyAdmin = async (res, token) => {
+    const userInfo = await verifyToken(res, token);
+
+    console.log(userInfo);
+
+    if (!userInfo.isAdmin) {
+        console.log("User not admin")
+
+        return returnError(
+            {message: "User has no admin privileges to perform task"},
+            res, 403
+        );
+    }
+
+    return userInfo;
+}
+
 // Welcome request ____________________________________________________________
 app.get('/', (req, res) => {
     const response = {
         msg: "Welcome to auth API!",
-        requisition: req.body
+        documentation: "https://github.com/gustavcampos/RS_SOAAuthService"
     }
 
     res.json(response);
 });
 
 // Admin requests _____________________________________________________________
-app.get('/admin/user-list', (req, res) => {
+app.get('/admin/user-list', async (req, res) => {
+    const userInfo = await verifyAdmin(res, req.body.token);
+    if (!userInfo) return;
+
+
     console.info("Retrieving user list.")
     
     const database = createDBConnection(dbPath);
-    const databaseQuery = `SELECT username, isactive FROM users`;
+    const databaseQuery = `SELECT username, isadmin, isactive FROM users`;
 
     database.all(databaseQuery, (error, rows) => {
         if (error) {returnError(error, res, 500);};
@@ -70,16 +113,20 @@ app.get('/admin/user-list', (req, res) => {
     });
 })
 
-app.post('/admin/add-user', (req, res) => {
+app.post('/admin/add-user', async (req, res) => {
+    const userInfo = await verifyAdmin(res, req.body.token);
+    if (!userInfo) return;
+
     const username = req.body.username;
     const password = req.body.password;
+    const isadmin  = req.body?.isadmin || false;
 
     console.info(`Trying to create user ${username}...`);
 
     const database = createDBConnection(dbPath);
     const databaseQuery = `
-        INSERT INTO users (username, password, isActive)
-        VALUES (?, ?, true);
+        INSERT INTO users (username, password, isactive, isadmin)
+        VALUES (?, ?, true, ?);
     `;
 
     bcrypt.genSalt(saltRounds, (error, salt) => {
@@ -92,7 +139,7 @@ app.post('/admin/add-user', (req, res) => {
 
             console.info("Password hash generated.")
 
-            database.run(databaseQuery, [username, hash], (error) => {
+            database.run(databaseQuery, [username, hash, isadmin], (error) => {
                 if (error) {return returnError(error, res);}
 
                 const msg = `User ${username} created!`;
@@ -109,7 +156,10 @@ app.post('/admin/add-user', (req, res) => {
     })
 });
  
-app.post('/admin/toggle-user-status', (req, res) => {
+app.post('/admin/toggle-user-status', async (req, res) => {
+    const userInfo = await verifyAdmin(res, req.body.token);
+    if (!userInfo) return;
+
     const username = req.body.username;
 
     console.info(`Trying to change active status of user ${username}`);
@@ -131,6 +181,43 @@ app.post('/admin/toggle-user-status', (req, res) => {
             if (error) {return returnError(error, res);}
 
             const msg = `User ${username} status set to ${!row.isactive}.`
+            console.info(msg);
+
+            res.json({
+                status: "success",
+                msg: msg
+            });
+
+            database.close();
+        });
+    });
+});
+
+app.post('/admin/toggle-user-admin', async (req, res) => {
+    const userInfo = await verifyAdmin(res, req.body.token);
+    if (!userInfo) return;
+
+    const username = req.body.username;
+
+    console.info(`Trying to change active status of user ${username}`);
+    
+    const database = createDBConnection(dbPath);
+    const databaseQuery = `
+        UPDATE users 
+        SET isadmin = ? 
+        WHERE username = ?; 
+    `;
+
+    database.get(getUserQuery, [username], (error, row) => {
+        if (error) {return returnError(error, res);}
+        if (!row) {return returnError({message: `User ${username} not found on database.`}, res)}
+
+        console.info(`User ${username} retrieved.`)
+
+        database.run(databaseQuery, [!row.isadmin, username], (error) => {
+            if (error) {return returnError(error, res);}
+
+            const msg = `User ${username} admin set to ${!row.isadmin}.`
             console.info(msg);
 
             res.json({
@@ -170,7 +257,8 @@ app.post("/login", (req, res) => {
                 const payload = {
                     userID: row.id,
                     username: row.username,
-                    isActive: row.isactive
+                    isActive: row.isactive,
+                    isAdmin: row.isadmin
                 };
                 
                 const secret = JSON.parse(data).secret;
@@ -197,24 +285,18 @@ app.post("/login", (req, res) => {
     });
 });
 
-app.get("/validate/:token", (req, res) => {
-    fileSystem.readFile(tokenPath, "utf-8", (error, data) => {
-        console.info("Retrieving token secret.")
-        
-        if (error) {returnError(error, res, 500)}
-        
-        const tokenSecret = JSON.parse(data).secret;
+app.get("/validate", async (req, res) => {
+    const token = req.body.token;
+    const decoded = await verifyToken(res, token);
 
-        jwt.verify(req.params.token, tokenSecret, (error, decoded) => {
-            if (error) {return returnError(error, res, 401);};
+    if (!decoded) {return;}
 
-            res.json({
-                status: "success",
-                user: decoded.username,
-                token: req.params.token,
-            });
-        });
-    })
+    res.json({
+        status: "success",
+        user: decoded.username,
+        isadmin: decoded.isAdmin,
+        token: token
+    });
 });
 
 // Running API

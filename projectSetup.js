@@ -1,8 +1,12 @@
+const c = require("./constants.js")
+
 // Setup database ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+const bcrypt = require("bcrypt");
 const sqlite = require("sqlite3").verbose();
 
+
 // Connect to database
-const database = new sqlite.Database('users.db', (error) => {
+const database = new sqlite.Database(c.sqlite.path, (error) => {
     if (error) {
         return console.error(error.message);
     }
@@ -10,23 +14,45 @@ const database = new sqlite.Database('users.db', (error) => {
     console.log("Connected to SQLite Database!")
 })
 
-// Create users table if it doesn't exist
-database.run(`
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL UNIQUE,
-        password TEXT NOT NULL,
-        isactive BOOLEAN NOT NULL
-    )     
-`, (error) => {
-    if (error) {
-        return console.error(error.message);
-    }
+database.serialize(() => {
+    // Create users table if it doesn't exist
+    database.run(`
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL,
+            isactive BOOLEAN NOT NULL,
+            isadmin BOOLEAN NOT NULL
+        );
+    `, (error) => {
+        if (error) {
+            return console.error(error.message);
+        }
+    
+        console.log("Users table created or already exist!")
+    });
 
-    console.log("Users table created or already exist!")
+    const hashPwd = bcrypt.hashSync("1234", bcrypt.genSaltSync(c.bcrypt.saltRounds));
+    
+    // Insert first user
+    database.run(`
+        INSERT OR IGNORE INTO users (username, password, isactive, isadmin)
+        VALUES ('admin', '${hashPwd}', true, true);
+    `, (error) => {
+        if (error) {
+            return console.error(error.message);
+        }
+    
+        console.log("First access user created.")
+    });
+})
+
+// Close Database
+database.close((err) => {
+    if (err) {console.error("Error:", err.message);} 
+    else {console.log("Database Closed.");}
 });
 
-const { error } = require("console");
 // Setup token secret file ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 const crypto     = require("crypto");
 const fileSystem = require("fs");

@@ -72,8 +72,15 @@ Formatos válidos disponíveis para tempo de validade podem ser conferidos em [v
 }
 ```
 
-### `GET:/validate/<token-de-acesso>`
+### `GET:/validate`
 Verifica se um token de acesso é valido.
+
+**Corpo Requisição:**
+```json
+{
+    "token": "<token de acesso do usuário>"
+}
+```
 
 **Resposta:**
 ```json
@@ -88,6 +95,13 @@ Verifica se um token de acesso é valido.
 ### `GET:/admin/user-list`
 
 Lista usuários registrados na base de dados.
+
+**Corpo Requisição:**
+```json
+{
+    "token": "<token de acesso do usuário>"
+}
+```
 
 **Resposta:**
 ```json
@@ -110,8 +124,10 @@ Adiciona um usuário a base de dados.
 **Corpo Requisição:**
 ```json
 {
+    "token": "<token de acesso do usuário>",
     "username": "<string> nome de usuario",
-    "password": "<string> senha do usuario"
+    "password": "<string> senha do usuario",
+    "isadmin": "(opcional: false) <bool> define se o usuário será administrador"
 }
 ```
 
@@ -129,7 +145,27 @@ Alterna o status de ativação do usuário.
 **Corpo Requisição:**
 ```json
 {
-    "username": "<string> nome de usuario",
+    "token": "<token de acesso do usuário>",
+    "username": "<string> nome de usuario"
+}
+```
+
+**Resposta:**
+```json
+{
+    "status": "<string> success | error",
+    "msg": "<string> mensagem de resposta"
+}
+```
+
+### `POST:/admin/toggle-user-admin`
+Alterna os privilégios de administrador do usuário.
+
+**Corpo Requisição:**
+```json
+{
+    "token": "<token de acesso do usuário>",
+    "username": "<string> nome de usuario"
 }
 ```
 
